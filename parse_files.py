@@ -1,10 +1,10 @@
 import os
 import json
 from datetime import datetime
-from collections import OrderedDict
+import csv
 
-# files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucketCopy2'
 files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucket1'
+# files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucket_main'
 
 device_id = os.listdir(files_path)
 # device_id = ['esp32_1C8BA4', 'esp32_1C9D24']
@@ -50,6 +50,9 @@ if __name__ == '__main__':
     else:
         print('One or more folders missing')
 
+    total_timestamp_diff = 0
+    total_uptime_diff = 0
+
     # Recursive directory traversing
     for dirpath, dirs, files in os.walk(files_path):
         # create empty list to store the uptime and timestamp
@@ -61,24 +64,50 @@ if __name__ == '__main__':
             with open(os.path.join(dirpath, filename)) as json_file:
                 json_text = json.load(json_file)
                 uptime.append(int(json_text["uptime"]))
-                uptime.sort()
 
                 timestamp.append(get_timestamp(filename))
-                timestamp.sort()
                 file_count += 1
+        uptime.sort()
+        timestamp.sort()
 
         if len(files) != 0:
-            print(f'{os.path.basename(dirpath)} Data starts')
             print('-' * 30)
-            my_dict = dict(zip(timestamp, uptime))
-            print(my_dict)
+            print(f'{os.path.basename(dirpath)} Data starts')
+            # my_dict = dict(zip(timestamp, uptime))
+            # print(my_dict)
 
             # Calculate the difference in timestamp and in uptime, and then compare
             timestamp_diff = timestamp[-1] - timestamp[0]
             uptime_diff = round(uptime[-1] - uptime[0])
+
+            first_timestamp_diff = timestamp[-1] - timestamp[49]
+            first_uptime_diff = round(uptime[-1] - uptime[49])
+
+            total_timestamp_diff += timestamp_diff
+            total_uptime_diff += uptime_diff
+
+            with open(f'{os.path.basename(dirpath)}.csv', 'w', newline='') as f:
+                thewriter = csv.writer(f)
+                thewriter.writerow(['Device ID', 'Timestamp Differece',
+                                    'Uptime Difference', 'First 100 Timestamp Differece', 'First 100 Uptime Difference'])
+                thewriter.writerow([f'{os.path.basename(dirpath)}', timestamp_diff,
+                                    uptime_diff, first_timestamp_diff, first_uptime_diff])
+
             print(f'{file_count} files counted')
             print(f'Timestamp delta is {timestamp_diff} seconds')
             print(f'Uptime delta is {uptime_diff} seconds')
-            print('-' * 30)
+
+            print(
+                f'Timestamp delta (first 100 ignored)is {first_timestamp_diff} seconds')
+            print(
+                f'Uptime delta (first 100 ignored) is {first_uptime_diff} seconds')
+
             print(f'{os.path.basename(dirpath)} Data end')
-            print('' * 2)
+            print('-' * 30)
+            print('\n' * 3)
+
+    print(f'Total timestamp difference {total_timestamp_diff}')
+    print(f'Total uptime difference {total_uptime_diff}')
+    pecentage = ((total_uptime_diff - total_timestamp_diff) /
+                 total_uptime_diff) * 100
+    print(f'Pecentage loss {pecentage}%')

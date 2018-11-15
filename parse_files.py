@@ -3,8 +3,8 @@ import json
 from datetime import datetime
 import csv
 
-files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucket1'
-# files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucket_main'
+# files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucket1'
+files_path = '/Users/kebba/Desktop/Precor-EE_AWS_Files/precor-ee-bucket_main'
 
 device_id = os.listdir(files_path)
 # device_id = ['esp32_1C8BA4', 'esp32_1C9D24']
@@ -42,6 +42,20 @@ def all_reported():
     return False
 
 
+def check_list(shifted_one, shifted_two):
+
+    error_count = 0
+    seconds_skipped = 0
+    for ls_one, ls_two in zip(shifted_one, shifted_two):
+        if ls_one - ls_two > 1:
+            # print(ls_one, ls_two)
+            error_count += 1
+            seconds = ls_one - ls_two
+            seconds_skipped += seconds
+
+    return error_count, seconds_skipped
+
+
 if __name__ == '__main__':
 
     # Check to see if there is a folder for all 25 devices
@@ -50,64 +64,35 @@ if __name__ == '__main__':
     else:
         print('One or more folders missing')
 
-    total_timestamp_diff = 0
-    total_uptime_diff = 0
-
     # Recursive directory traversing
     for dirpath, dirs, files in os.walk(files_path):
         # create empty list to store the uptime and timestamp
         uptime = []
-        timestamp = []
         file_count = 0
-        for filename in files:
 
+        # open each json file and extract the uptime data and append to a list
+        for filename in files:
             with open(os.path.join(dirpath, filename)) as json_file:
                 json_text = json.load(json_file)
                 uptime.append(int(json_text["uptime"]))
-
-                timestamp.append(get_timestamp(filename))
                 file_count += 1
         uptime.sort()
-        timestamp.sort()
 
         if len(files) != 0:
             print('-' * 30)
             print(f'{os.path.basename(dirpath)} Data starts')
-            # my_dict = dict(zip(timestamp, uptime))
-            # print(my_dict)
 
-            # Calculate the difference in timestamp and in uptime, and then compare
-            timestamp_diff = timestamp[-1] - timestamp[0]
-            uptime_diff = round(uptime[-1] - uptime[0])
+            shifted_uptime_one = uptime[1:]
+            shifted_uptime_two = uptime[: -2]
 
-            first_timestamp_diff = timestamp[-1] - timestamp[49]
-            first_uptime_diff = round(uptime[-1] - uptime[49])
+            # for i, j in zip(shifted_uptime_one, shifted_uptime_two):
+            #     print(i, j)
+            # print('\n' * 2)
 
-            total_timestamp_diff += timestamp_diff
-            total_uptime_diff += uptime_diff
-
-            with open(f'{os.path.basename(dirpath)}.csv', 'w', newline='') as f:
-                thewriter = csv.writer(f)
-                thewriter.writerow(['Device ID', 'Timestamp Differece',
-                                    'Uptime Difference', 'First 100 Timestamp Differece', 'First 100 Uptime Difference'])
-                thewriter.writerow([f'{os.path.basename(dirpath)}', timestamp_diff,
-                                    uptime_diff, first_timestamp_diff, first_uptime_diff])
-
-            print(f'{file_count} files counted')
-            print(f'Timestamp delta is {timestamp_diff} seconds')
-            print(f'Uptime delta is {uptime_diff} seconds')
-
-            print(
-                f'Timestamp delta (first 100 ignored)is {first_timestamp_diff} seconds')
-            print(
-                f'Uptime delta (first 100 ignored) is {first_uptime_diff} seconds')
+            errors, seconds = check_list(
+                shifted_uptime_one, shifted_uptime_two)
+            print(f'There were {errors} errors and {seconds} seconds missing')
 
             print(f'{os.path.basename(dirpath)} Data end')
             print('-' * 30)
             print('\n' * 3)
-
-    print(f'Total timestamp difference {total_timestamp_diff}')
-    print(f'Total uptime difference {total_uptime_diff}')
-    pecentage = ((total_uptime_diff - total_timestamp_diff) /
-                 total_uptime_diff) * 100
-    print(f'Pecentage loss {pecentage}%')
